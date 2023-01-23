@@ -7,12 +7,8 @@ import com.band.usercenter.utils.ErrorEnum;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.band.usercenter.service.UserService;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
@@ -20,7 +16,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -32,7 +27,6 @@ import static com.band.usercenter.constants.UserConstant.*;
  * @description 针对表【user(用户表)】的数据库操作Service实现
  * @createDate 2023-01-06 10:38:33
  */
-@Slf4j
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
@@ -48,29 +42,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 非空
         boolean isEmpty = StringUtils.isAnyBlank(userAccount, userPassword, confirmPassword);
         if (isEmpty) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "注册信息项有为空");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"注册信息项有为空");
         }
 
         // 账户不小于4位
         if (userAccount.length() < 4) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "注册账号小于四位");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"注册账号小于四位");
         }
 
         // 密码不小于8位
         if (userPassword.length() < 8 || confirmPassword.length() < 8) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "注册密码小于四位");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"注册密码小于四位");
         }
 
         // 密码和确认密码相同
         if (!userPassword.equals(confirmPassword)) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "注册密码和确认密码不相同");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"注册密码和确认密码不相同");
         }
 
         // 账号不包含特殊字符
-        boolean matches = checkSpecialCharacter(userAccount);
+        String regEx = ".*[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*()——+|{}【】‘；：”“’。，、？\\\\]+.*";
+        Pattern pattern = Pattern.compile(regEx);
+        Matcher matcher = pattern.matcher(userAccount);
+        boolean matches = matcher.matches();
 
         if (matches) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "注册账号包含非法字符");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"注册账号包含非法字符");
         }
 
         // 账号名不重复
@@ -78,7 +75,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.eq("userAccount", userAccount);
         int count = userMapper.selectCount(queryWrapper);
         if (count != 0) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "注册账号名重复");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"注册账号名重复");
         }
 
 
@@ -93,7 +90,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         Integer save = userMapper.insert(user);
 
         if (save == 0) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "系统异常");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"系统异常");
         }
 
         return user.getId();
@@ -105,24 +102,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 非空
         boolean isEmpty = StringUtils.isAnyBlank(userAccount, userPassword);
         if (isEmpty) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "登录参数有为空");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"登录参数有为空");
         }
 
         // 账户不小于4位
         if (userAccount.length() < 4) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "登录账户小于4位");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"登录账户小于4位");
         }
 
         // 密码不小于8位
         if (userPassword.length() < 8) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "登录密码小于8位");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"登录密码小于8位");
         }
 
         // 账号不包含特殊字符
-        boolean matches = checkSpecialCharacter(userAccount);
+        String regEx = ".*[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*()——+|{}【】‘；：”“’。，、？\\\\]+.*";
+        Pattern pattern = Pattern.compile(regEx);
+        Matcher matcher = pattern.matcher(userAccount);
+        boolean matches = matcher.matches();
 
         if (matches) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "登录账号包含非法字符");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"登录账号包含非法字符");
         }
 
 
@@ -136,12 +136,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 无该用户
         if (storedUser == null) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "登录输入的用户不存在");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"登录输入的用户不存在");
         }
 
         // 密码不匹配
         if (!storedUser.getUserPassword().equals(md5Password)) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "登录密码有误");
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"登录密码有误");
         }
 
         // 3.信息脱敏
@@ -153,21 +153,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         session.setAttribute(USER_LOGIN_SIGNAL, safetyUser);
 
         return safetyUser;
-    }
-
-    /**
-     * 检查是否包含不符合规定的特殊字符
-     *
-     * @param original
-     * @return 包含-> true  否则->false
-     */
-    private boolean checkSpecialCharacter(String original) {
-        // 账号不包含特殊字符
-        String regEx = "^[^<>{}\"/|;:.,~!?@#$%^=&*\\]\\\\()\\[¿§«»ω⊙¤°℃℉€¥£¢¡®©0-9_+]*$";
-
-        Pattern pattern = Pattern.compile(regEx);
-        Matcher matcher = pattern.matcher(original);
-        return matcher.matches();
     }
 
     @Override
@@ -187,7 +172,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.like("username", username);
         List<User> users = userMapper.selectList(queryWrapper);
 
-        return users.stream().map(this::flushData).collect(Collectors.toList());
+        List<User> userList = users.stream().map(user -> flushData(user)).collect(Collectors.toList());
+
+        return userList;
     }
 
     @Override
@@ -201,7 +188,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 根据id删除
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("id", userId);
+        queryWrapper.eq("id",userId);
         int delete = userMapper.delete(queryWrapper);
 
         if (delete < 1) {
@@ -214,7 +201,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 验证是否为管理员
-     *
      * @param request HttpRequest请求
      * @return 判断信息
      */
@@ -222,7 +208,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 获取session 比对身份
         HttpSession session = request.getSession();
         Object attribute = session.getAttribute(USER_LOGIN_SIGNAL);
-        User validUser = (User) attribute;
+        User validUser = (User)attribute;
 
         if (validUser == null) {
             throw new UserCenterException(ErrorEnum.NO_LOGIN, "验证用户权限,没登录");
@@ -239,9 +225,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 信息脱敏
-     *
-     * @param original 含敏感信息的用户对象
-     * @return 去除敏感信息的用户对象
+     * @param original  含敏感信息的用户对象
+     * @return  去除敏感信息的用户对象
      */
     public User flushData(User original) {
         // 3.信息脱敏
@@ -260,14 +245,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safetyUser.setCreateTime(original.getCreateTime());
         safetyUser.setUserRole(original.getUserRole());
         safetyUser.setUsername(original.getUsername());
-        safetyUser.setTags(original.getTags());
 
         return safetyUser;
     }
 
     /**
      * 获取当前用户
-     *
      * @param request
      * @return
      */
@@ -276,12 +259,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         HttpSession session = request.getSession();
         Object userObj = session.getAttribute(USER_LOGIN_SIGNAL);
         User user = (User) userObj;
-        return flushData(user);
+        User cleanUser = flushData(user);
+
+        return cleanUser;
     }
 
     /**
      * 用户注销
-     *
      * @param request
      * @return
      */
@@ -290,73 +274,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         HttpSession session = request.getSession();
         session.removeAttribute(USER_LOGIN_SIGNAL);
         return 1;
-    }
-
-
-    /**
-     * 根据标签搜索用户（内存版）
-     *
-     * @param tagList 用户要拥有的标签
-     * @return
-     */
-    @Override
-    public List<User> searchUsersByTags(List<String> tagList) {
-
-        if (CollectionUtils.isEmpty(tagList)) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "标签为空");
-        }
-
-        // 内存查询
-        QueryWrapper<User> objectQueryWrapper = new QueryWrapper<>();
-        List<User> users = userMapper.selectList(objectQueryWrapper);
-
-        // 处理Json字符串
-        Gson gson = new Gson();
-
-        return users.stream().filter(user -> {
-            String tags = user.getTags();
-
-            if (StringUtils.isBlank(tags)) {
-                return false;
-            }
-            Set<String> tagNameSets = gson.fromJson(tags, new TypeToken<Set<String>>() {
-            }.getType());
-
-            for (String tag : tagList) {
-                if (!tagNameSets.contains(tag)) {
-                    return false;
-                }
-            }
-            return true;
-        }).collect(Collectors.toList());
-    }
-
-
-    /**
-     * 根据标签搜索用户（SQL版本）
-     *
-     * @param tagList 用户要拥有的标签
-     * @return
-     */
-    public List<User> searchUsersByTagsBySQL(List<String> tagList) {
-
-        if (CollectionUtils.isEmpty(tagList)) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "标签为空");
-        }
-
-        // 数据库 like 查询
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        for (String tagName : tagList) {
-            queryWrapper = queryWrapper.like("tags", tagName);
-        }
-
-        List<User> userList = userMapper.selectList(queryWrapper);
-        // 数据库内无目标数据
-        if (CollectionUtils.isEmpty(userList)) {
-            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "无所查信息");
-        }
-
-        return userList.stream().map(this::flushData).collect(Collectors.toList());
     }
 }
 

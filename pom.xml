@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.band</groupId>
-    <artifactId>user-center-backend</artifactId>
+    <artifactId>user-center</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>user-center-backend</name>
-    <description>user-center-backend</description>
+    <name>user-center</name>
+    <description>user-center</description>
     <properties>
         <java.version>8</java.version>
     </properties>
@@ -65,12 +65,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.9.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/junit/junit -->
