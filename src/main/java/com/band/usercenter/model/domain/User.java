@@ -80,6 +80,12 @@ public class User implements Serializable {
     @TableLogic
     private Integer isDelete;
 
+    /**
+     * 用户创建的标签，JSON串
+     */
+    @TableField(value = "tags")
+    private String tags;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

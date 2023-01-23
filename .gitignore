@@ -18,6 +18,7 @@ target/
 *.iws
 *.iml
 *.ipr
+/src/test/
 
 ### NetBeans ###
 /nbproject/private/
@@ -26,8 +27,14 @@ target/
 /nbdist/
 /.nb-gradle/
 build/
+
 !**/src/main/**/build/
 !**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
+test\
+test\
+test\
+/src/test/
+!/src/test/

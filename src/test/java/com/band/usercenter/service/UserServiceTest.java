@@ -1,6 +1,8 @@
 package com.band.usercenter.service;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 
 import com.band.usercenter.model.domain.User;
 import org.junit.jupiter.api.Assertions;
@@ -55,7 +57,7 @@ public class UserServiceTest {
         // 1.非空
         userAccount = "";
         userPassword = "12345678";
-        confirmPassword = "12345678";
+         confirmPassword = "12345678";
         long result = userService.userRegister(userAccount, userPassword, confirmPassword);
         Assertions.assertEquals(-1, result);
 
@@ -96,4 +98,12 @@ public class UserServiceTest {
 
     }
 
+    @Test
+    void searchUsersByTags() {
+
+//        List<String> tagList = Arrays.asList("java","python");
+        List<String> tagList = Arrays.asList("c++");
+        List<User> users = userService.searchUsersByTags(tagList);
+        users.stream().forEach(user -> System.out.println(user));
+    }
 }
