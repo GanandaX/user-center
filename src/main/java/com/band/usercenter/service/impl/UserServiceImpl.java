@@ -7,8 +7,11 @@ import com.band.usercenter.utils.ErrorEnum;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.band.usercenter.service.UserService;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
@@ -16,6 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -24,8 +28,6 @@ import static com.band.usercenter.constants.UserConstant.*;
 
 /**
  * @author GrandBand
- * @description 针对表【user(用户表)】的数据库操作Service实现
- * @createDate 2023-01-06 10:38:33
  */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
@@ -61,10 +63,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
 
         // 账号不包含特殊字符
-        String regEx = ".*[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*()——+|{}【】‘；：”“’。，、？\\\\]+.*";
-        Pattern pattern = Pattern.compile(regEx);
-        Matcher matcher = pattern.matcher(userAccount);
-        boolean matches = matcher.matches();
+        boolean matches = validSpecialCharacter(userAccount);
 
         if (matches) {
             throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"注册账号包含非法字符");
@@ -87,7 +86,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         User user = new User();
         user.setUserAccount(userAccount);
         user.setUserPassword(md5Password);
-        Integer save = userMapper.insert(user);
+        int save = userMapper.insert(user);
 
         if (save == 0) {
             throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"系统异常");
@@ -116,10 +115,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
 
         // 账号不包含特殊字符
-        String regEx = ".*[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*()——+|{}【】‘；：”“’。，、？\\\\]+.*";
-        Pattern pattern = Pattern.compile(regEx);
-        Matcher matcher = pattern.matcher(userAccount);
-        boolean matches = matcher.matches();
+        boolean matches = validSpecialCharacter(userAccount);
 
         if (matches) {
             throw new UserCenterException(ErrorEnum.PARAMETER_ERROR,"登录账号包含非法字符");
@@ -159,7 +155,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public List<User> searchUsersByUsername(String username, HttpServletRequest request) {
 
         // 比对身份
-        boolean result = validRole(request);
+        User userValid = (User) request.getSession().getAttribute(USER_LOGIN_SIGNAL);
+        boolean result = validRole(userValid);
         if (!result) {
             throw new UserCenterException(ErrorEnum.NO_AUTH, "查看用户列表但非管理员权限");
         }
@@ -172,16 +169,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.like("username", username);
         List<User> users = userMapper.selectList(queryWrapper);
 
-        List<User> userList = users.stream().map(user -> flushData(user)).collect(Collectors.toList());
-
-        return userList;
+        return users.stream().map(this::flushData).collect(Collectors.toList());
     }
 
     @Override
     public boolean removeUserById(Integer userId, HttpServletRequest request) {
 
         // 比对身份
-        boolean result = validRole(request);
+        User user = (User) request.getSession().getAttribute(USER_LOGIN_SIGNAL);
+        boolean result = validRole(user);
         if (!result) {
             throw new UserCenterException(ErrorEnum.NO_AUTH, "删除用户但非管理员权限");
         }
@@ -199,17 +195,97 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
 
+    @Override
+    public User getCurrentUser(HttpServletRequest request) {
+        HttpSession session = request.getSession();
+        Object userObj = session.getAttribute(USER_LOGIN_SIGNAL);
+        if (userObj == null) {
+            throw new UserCenterException(ErrorEnum.NO_LOGIN, "登录后才能获取当前用户");
+        }
+        User user = (User) userObj;
+        return flushData(user);
+    }
+
+    @Override
+    public Integer userLoginOut(HttpServletRequest request) {
+        HttpSession session = request.getSession();
+        session.removeAttribute(USER_LOGIN_SIGNAL);
+        return 1;
+    }
+
+    @Override
+    public List<User> searchUsersByTags(List<String> tagList) {
+
+        if (CollectionUtils.isEmpty(tagList)) {
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "标签为空");
+        }
+
+        // 内存查询
+        QueryWrapper<User> objectQueryWrapper = new QueryWrapper<>();
+        List<User> users = userMapper.selectList(objectQueryWrapper);
+
+        // 处理Json字符串
+        Gson gson = new Gson();
+
+        return users.stream().filter(user -> {
+            String tags = user.getTags();
+
+            if (StringUtils.isBlank(tags)) {
+                return false;
+            }
+            Set<String> tagNameSets = gson.fromJson(tags, new TypeToken<Set<String>>() {
+            }.getType());
+
+            for (String tag : tagList) {
+                if (!tagNameSets.contains(tag)) {
+                    return false;
+                }
+            }
+            return true;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    public int amendUser(User user, User loginUser) {
+        // 1. 判空
+        // 2. 检查权限(管理员和普通对应用户可修改)
+        Long id = user.getId();
+        if (user.isEmpty() || id == null || id <= 0) {
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "登录数据不合法");
+        }
+
+        // 判断修改权限(仅管理员和对应用户可修改)
+        if (!id.equals(loginUser.getId()) && !validRole(loginUser)) {
+            throw new UserCenterException(ErrorEnum.NO_AUTH, "修改用户，无修改权限");
+        }
+
+        // 判断要修改的用户是否存在
+        User storedUser = userMapper.selectById(id);
+        if (storedUser == null) {
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "修改用户信息有误");
+        }
+
+        // 修改用户
+        return userMapper.updateById(user);
+    }
+
+    @Override
+    public User searchUserById(Long userId) {
+
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new UserCenterException(ErrorEnum.PARAMETER_ERROR, "查询参数不合法");
+        }
+        return user;
+    }
+
+
     /**
      * 验证是否为管理员
-     * @param request HttpRequest请求
+     * @param validUser 判断的用户信息
      * @return 判断信息
      */
-    boolean validRole(HttpServletRequest request) {
-        // 获取session 比对身份
-        HttpSession session = request.getSession();
-        Object attribute = session.getAttribute(USER_LOGIN_SIGNAL);
-        User validUser = (User)attribute;
-
+    boolean validRole(User validUser) {
         if (validUser == null) {
             throw new UserCenterException(ErrorEnum.NO_LOGIN, "验证用户权限,没登录");
         }
@@ -220,7 +296,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
 
         return true;
-
     }
 
     /**
@@ -245,35 +320,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safetyUser.setCreateTime(original.getCreateTime());
         safetyUser.setUserRole(original.getUserRole());
         safetyUser.setUsername(original.getUsername());
+        safetyUser.setUserProfile(original.getUserProfile());
 
         return safetyUser;
     }
 
     /**
-     * 获取当前用户
-     * @param request
-     * @return
+     * 判断是否包含特殊字符
+     * @param validString 判断的字符串
+     * @return true 包含特殊字符  false 不包含特殊字符
      */
-    @Override
-    public User getCurrentUser(HttpServletRequest request) {
-        HttpSession session = request.getSession();
-        Object userObj = session.getAttribute(USER_LOGIN_SIGNAL);
-        User user = (User) userObj;
-        User cleanUser = flushData(user);
+    private boolean validSpecialCharacter(String validString) {
+        // 账号不包含特殊字符
+        String regEx = ".*[`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*()——+|{}【】‘；：”“’。，、？\\\\]+.*";
+        Pattern pattern = Pattern.compile(regEx);
+        Matcher matcher = pattern.matcher(validString);
 
-        return cleanUser;
-    }
-
-    /**
-     * 用户注销
-     * @param request
-     * @return
-     */
-    @Override
-    public Integer userLoginOut(HttpServletRequest request) {
-        HttpSession session = request.getSession();
-        session.removeAttribute(USER_LOGIN_SIGNAL);
-        return 1;
+        return matcher.matches();
     }
 }
 

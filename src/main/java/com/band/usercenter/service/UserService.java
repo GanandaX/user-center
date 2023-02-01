@@ -68,4 +68,26 @@ public interface UserService extends IService<User> {
      */
     Integer userLoginOut(HttpServletRequest request);
 
+    /**
+     * 根据标签搜索用户（内存版）
+     *
+     * @param tagList 用户要拥有的标签
+     * @return
+     */
+    List<User> searchUsersByTags(List<String> tagList);
+
+    /**
+     * 修改用户信息
+     * @param user 要修改的用户信息
+     * @param loginUser   登录的用户信息
+     * @return
+     */
+    int amendUser(User user, User loginUser);
+
+    /**
+     * 根据id查询用户
+     * @param userId    用户id
+     * @return
+     */
+    User searchUserById(Long userId);
 }

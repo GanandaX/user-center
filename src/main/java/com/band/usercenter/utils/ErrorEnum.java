@@ -4,7 +4,7 @@ package com.band.usercenter.utils;
  * 标识错误类型
  */
 public enum ErrorEnum {
-    SUCCESS(0,"sucess"),
+    SUCCESS(1,"success"),
     PARAMETER_ERROR(40000,"参数错误"),
     NO_LOGIN(40100,"未登录"),
     NO_AUTH( 40101,"无权限"),

@@ -7,7 +7,7 @@ public class ResponseUtils {
 
     // 响应正常
     public static <T>BaseResponse<T> ok(T data) {
-        return new BaseResponse<>(0,data,"ok","");
+        return new BaseResponse<>(1,data,"ok","");
     }
 
     // 异常响应

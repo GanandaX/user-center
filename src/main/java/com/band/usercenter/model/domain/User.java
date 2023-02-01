@@ -35,6 +35,11 @@ public class User implements Serializable {
     private String username;
 
     /**
+     * 用户描述
+     */
+    private String userProfile;
+
+    /**
      * 用户图像地址
      */
     private String avatarUrl;
@@ -43,6 +48,12 @@ public class User implements Serializable {
      * 电话
      */
     private String phone;
+
+    /**
+     * 用户创建的标签，JSON串
+     */
+    @TableField(value = "tags")
+    private String tags;
 
     /**
      * 电子邮件
@@ -82,4 +93,15 @@ public class User implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
+
+    /**
+     * 判断是否为空(用户账号、性别、电话、邮件为判断标准)
+     * @return
+     */
+    public boolean isEmpty() {
+        if (username == null && gender == null && phone == null && email == null) {
+            return true;
+        }
+        return false;
+    }
 }

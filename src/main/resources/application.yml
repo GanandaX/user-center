@@ -6,15 +6,27 @@ spring:
     username: root
     password: root
     url: jdbc:mysql://localhost:3306/band
+#    session失效时间(分钟)
   session:
     timeout: 86400
+    store-type: redis
 
+  #redis
+  redis:
+    port: 6379
+    host: localhost
+    database: 0
 
 server:
   port: 8080
   servlet:
     context-path: /api
+  reactive:
+    session:
+      cookie:
+        domain: localhost
 
+#DataSource config
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false
@@ -24,6 +36,23 @@ mybatis-plus:
       logic-not-delete-value: 0 # 逻辑未删除值(默认为 0)
 
 
-#logging:
-#  level:
-#    com.band.usercenter.mapper: debug
+# 接口文档
+knife4j:
+  enable: true
+  openapi:
+    title: Use-center-backend API
+    description: 用户中心后端接口文档
+    email: 1300045373@qq.com
+    concat: GanandaX
+    version: v1.0
+    license: Apache 2.0
+    group:
+      test1:
+        group-name: 用户中心接口
+        api-rule: package
+        api-rule-resources:
+          - com.band.usercenter.controller
+
+logging:
+  level:
+    com.band.usercenter.mapper: debug

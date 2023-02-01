@@ -96,4 +96,10 @@ public class UserServiceTest {
 
     }
 
+    @Test
+    public void test5() {
+        int count = userService.count();
+        System.out.println(count);
+    }
+
 }
